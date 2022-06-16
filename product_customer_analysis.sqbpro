@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="/Users/nishathossain/Desktop/SQL Project 6.12.22/stores.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="3197"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,9:maincustomers"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="customers" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="98"/><column index="2" value="175"/><column index="3" value="98"/><column index="4" value="101"/><column index="5" value="108"/><column index="6" value="158"/><column index="7" value="127"/><column index="8" value="103"/><column index="9" value="72"/><column index="10" value="67"/><column index="11" value="74"/><column index="12" value="146"/><column index="13" value="64"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="employees" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="2" value="64"/><column index="3" value="59"/><column index="4" value="59"/><column index="5" value="181"/><column index="6" value="65"/><column index="7" value="60"/><column index="8" value="120"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="offices" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="65"/><column index="2" value="80"/><column index="4" value="137"/><column index="5" value="77"/><column index="6" value="69"/><column index="7" value="54"/><column index="8" value="67"/><column index="9" value="51"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="orderdetails" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="77"/><column index="2" value="75"/><column index="3" value="94"/><column index="4" value="59"/><column index="5" value="98"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="orders" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="77"/><column index="2" value="73"/><column index="3" value="75"/><column index="4" value="73"/><column index="5" value="62"/><column index="6" value="300"/><column index="7" value="98"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="payments" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="98"/><column index="2" value="80"/><column index="3" value="77"/><column index="4" value="63"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="productlines" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="98"/><column index="2" value="300"/><column index="3" value="91"/><column index="4" value="40"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="products" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="75"/><column index="2" value="228"/><column index="3" value="98"/><column index="4" value="77"/><column index="5" value="139"/><column index="6" value="300"/><column index="7" value="92"/><column index="8" value="55"/><column index="9" value="47"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="project.sql"> 
+/*Which products should the business order more of? Identifying priority products to restock*/
+ 
+/*The low_stock_table generates the top 10 products that are the lowest in stock*/
+ 
+ WITH
+ low_stock_table AS (
+ SELECT productCode,
+				  ROUND (SUM(quantityOrdered)*1.0/ (SELECT quantityInStock
+																								   FROM products AS p
+																							    WHERE od.productCode=p.productCode), 2)  AS low_stock		
+   FROM orderdetails AS od
+ GROUP BY productCode
+ ORDER BY low_stock
+  LIMIT 10
+  )
+
+/*This query produces a table showing which of the low-stock products are the highest performing 
+according to sales data*/
+
+SELECT p.productName, 
+				   p.productLine,
+				   od.productCode,
+	               SUM(od.quantityOrdered*od.priceEach) AS product_revenue
+	FROM orderdetails AS od
+	  JOIN products AS p
+	      ON p.productCode=od.productCode
+WHERE od.productCode IN (SELECT productCode
+															FROM low_stock_table)
+  GROUP BY od.productCode
+  ORDER BY product_revenue DESC
+   LIMIT 10;
+	 
+/*PART 2 - CUSTOMER ENGAGEMENT*/
+   /*Most engaged customers*/
+      
+WITH 
+profit_by_customer_table AS (
+SELECT o.customerNumber, SUM(quantityOrdered * (priceEach - buyPrice)) AS profit
+   FROM products AS p
+    JOIN orderdetails AS od
+        ON p.productCode = od.productCode
+   JOIN orders o
+       ON o.orderNumber = od.orderNumber
+ GROUP BY o.customerNumber
+)
+
+SELECT contactLastName, contactFirstName, city, country, pc.profit
+  FROM customers AS c
+  JOIN profit_by_customer_table AS pc
+    ON pc.customerNumber = c.customerNumber
+ ORDER BY pc.profit DESC
+ LIMIT 5;
+
+   /*Least engaged customers*/
+      
+   WITH 
+profit_by_customer_table AS (
+SELECT o.customerNumber, SUM(quantityOrdered * (priceEach - buyPrice)) AS profit
+   FROM products AS p
+    JOIN orderdetails AS od
+        ON p.productCode = od.productCode
+   JOIN orders o
+       ON o.orderNumber = od.orderNumber
+ GROUP BY o.customerNumber
+)
+
+SELECT contactLastName, contactFirstName, city, country, pc.profit
+  FROM customers AS c
+  JOIN profit_by_customer_table AS pc
+    ON pc.customerNumber = c.customerNumber
+ ORDER BY pc.profit 
+ LIMIT 5;
+ 
+ /*PART 3 - LTV*/
+ 
+  
+ WITH 
+profit_by_customer_table AS (
+SELECT o.customerNumber, SUM(quantityOrdered * (priceEach - buyPrice)) AS profit
+   FROM products AS p
+    JOIN orderdetails AS od
+        ON p.productCode = od.productCode
+   JOIN orders o
+       ON o.orderNumber = od.orderNumber
+ GROUP BY o.customerNumber
+)
+
+SELECT AVG(pc.profit) AS LTV
+	FROM profit_by_customer_table AS pc; 
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
